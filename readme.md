@@ -1,3 +1,5 @@
+<!--- https://my.home-assistant.io/create-link/?redirect=blueprint_import -->
+
 ## Controller - IKEA E1743 Tradfri Switch as a Push-Button to Light via zigbee2mqtt
 Controls a light with any number of switches given by ENTITY.  
 The switch is interpreted as a push-button so that 'ON' and 'Brightness Move Up' can control a different light to 'OFF' and 'Brightness Move Down'  
