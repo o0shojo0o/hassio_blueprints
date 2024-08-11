@@ -20,3 +20,8 @@ This automation will react on changes of energy imported or exported from the gr
 It will control the Photovoltaic power generation by setting the limit to a value avoiding exporting to the grid.
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fo0shojo0o%2Fhassio_blueprints%2Fblob%2Fmain%2Fpv_zero_feed_in.yaml)
+
+## Simple Cover Control
+A simple control mechanism for managing the position of a cover using one or more switches.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fo0shojo0o%2Fhassio_blueprints%2Fblob%2Fmain%2Fsimple_cover_control.yml)
