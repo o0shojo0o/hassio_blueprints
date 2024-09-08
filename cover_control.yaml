@@ -1,6 +1,8 @@
 blueprint:
   name: Simple Cover Control
-  description: A simple control mechanism for managing the position of a cover using one or more switches.
+    description: > 
+      The script controls a cover: it opens or closes based on switch activation and moves to the ventilation position when the window is open. 
+      If the window is closed, the cover closes completely.
   domain: automation
   input:
     taster_action:
