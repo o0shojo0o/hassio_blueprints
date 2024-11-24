@@ -1,0 +1,139 @@
+blueprint:
+  name: Christmas Lights with Schedule, On/Off Control, and Party Mode
+  description: Controls Christmas lights based on a schedule, with optional sensors and a Party Mode.
+  domain: automation
+  input:
+    lights:
+      name: Christmas Lights
+      description: The lights to be controlled.
+      selector:
+        target:
+          entity:
+            domain: light
+    schedule:
+      name: Schedule
+      description: Schedule entity determining on/off times.
+      selector:
+        entity:
+          filter:
+            domain: schedule
+    party_mode:
+      name: Party Mode (optional)
+      description: If this toggle is enabled, the lights will stay on regardless of the schedule, brightness, presence, or motion sensor checks.
+      default: []
+      selector:
+        entity:
+          filter:
+            domain: input_boolean
+    persons:
+      name: Persons (optional)
+      description: List of persons, at least one of whom must be present (if empty, no check).
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain: person              
+    brightness_sensor:
+      name: Brightness Sensor (optional)
+      description: An optional sensor measuring brightness (in Lux).
+      default: []
+      selector:    
+        entity:
+          filter:
+            device_class: illuminance
+            domain: sensor
+    brightness_threshold:
+      name: Brightness Threshold
+      description: Maximum brightness (Lux) at which lights will be turned on.
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 1000
+          unit_of_measurement: lux
+    motion_sensor:
+      name: Motion Sensor (optional)
+      description: An optional motion sensor that detects movement.
+      default: []
+      selector:
+        entity:
+          filter:
+            device_class: motion
+            domain: binary_sensor
+
+mode: restart
+
+triggers:
+  - trigger: state
+    entity_id: !input schedule
+  - trigger: state
+    entity_id: !input brightness_sensor
+  - trigger: state
+    entity_id: !input persons
+  - trigger: state
+    entity_id: !input motion_sensor
+  - trigger: state
+    entity_id: !input party_mode
+
+variables:
+  schedule: !input schedule
+  brightness_sensor: !input brightness_sensor
+  brightness_threshold: !input brightness_threshold
+  persons: !input persons
+  motion_sensor: !input motion_sensor
+  party_mode: !input party_mode
+
+condition: []
+
+action:
+  - choose:
+      - conditions:
+          # Party Mode check
+          - condition: template
+            value_template: >
+              {% if party_mode %}
+                {{ states(party_mode) == 'on' }}
+              {% else %}
+                false
+              {% endif %}
+        sequence:
+          - action: light.turn_on
+            target: !input lights
+      - conditions:
+          # Schedule check
+          - condition: template
+            value_template: "{{ states(schedule) == 'on' }}"
+
+          # Brightness sensor check (optional)
+          - condition: template
+            value_template: >
+              {% if brightness_sensor %}
+                {{ states(brightness_sensor) | float(0) <= brightness_threshold }}
+              {% else %}
+                true
+              {% endif %}
+
+          # Presence check (optional)
+          - condition: template
+            value_template: >
+              {% if persons | length > 0 %}
+                {{ expand(persons) | selectattr('state', 'equalto', 'home') | list | length > 0 }}
+              {% else %}
+                true
+              {% endif %}
+
+          # Motion sensor check (optional)
+          - condition: template
+            value_template: >
+              {% if motion_sensor %}
+                {{ states(motion_sensor) == 'on' }}
+              {% else %}
+                true
+              {% endif %}
+        sequence:
+          - action: light.turn_on
+            target: !input lights
+    default:
+      - action: light.turn_off
+        target: !input lights
