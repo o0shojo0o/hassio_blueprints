@@ -33,12 +33,12 @@ blueprint:
         entity:
           multiple: true
           filter:
-            domain: person              
+            domain: person
     brightness_sensor:
       name: Brightness Sensor (optional)
       description: An optional sensor measuring brightness (in Lux).
       default: []
-      selector:    
+      selector:
         entity:
           filter:
             device_class: illuminance
