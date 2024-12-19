@@ -9,14 +9,17 @@ blueprint:
       selector:
         target:
           entity:
-            domain: light
+          - domain:
+              - light
     schedule:
       name: Schedule
       description: Schedule entity determining on/off times.
       selector:
         entity:
           filter:
-            domain: schedule
+          - domain:
+              - schedule
+          multiple: false
     party_mode:
       name: Party Mode (optional)
       description: If this toggle is enabled, the lights will stay on regardless of the schedule, brightness, presence, or motion sensor checks.
@@ -24,7 +27,9 @@ blueprint:
       selector:
         entity:
           filter:
-            domain: input_boolean
+          - domain:
+              - input_boolean
+          multiple: false
     persons:
       name: Persons (optional)
       description: List of persons, at least one of whom must be present (if empty, no check).
@@ -33,7 +38,8 @@ blueprint:
         entity:
           multiple: true
           filter:
-            domain: person
+          - domain:
+              - person
     brightness_sensor:
       name: Brightness Sensor (optional)
       description: An optional sensor measuring brightness (in Lux).
@@ -41,17 +47,33 @@ blueprint:
       selector:
         entity:
           filter:
-            device_class: illuminance
-            domain: sensor
+          - device_class:
+              - illuminance
+            domain:
+              - sensor
+          multiple: false
     brightness_threshold:
       name: Brightness Threshold
       description: Maximum brightness (Lux) at which lights will be turned on.
       default: 50
       selector:
         number:
-          min: 0
-          max: 1000
+          min: 0.0
+          max: 1000.0
           unit_of_measurement: lux
+          step: 1.0
+          mode: slider
+    brightness_delay:
+      name: Brightness Delay (optional)
+      description: Time in seconds the brightness value must be below the threshold before it is considered valid.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+          step: 1
+          mode: slider
     motion_sensor:
       name: Motion Sensor (optional)
       description: An optional motion sensor that detects movement.
@@ -59,37 +81,43 @@ blueprint:
       selector:
         entity:
           filter:
-            device_class: motion
-            domain: binary_sensor
-
+          - device_class:
+              - motion
+            domain:
+              - binary_sensor
+          multiple: false
+  source_url: https://github.com/o0shojo0o/hassio_blueprints/blob/main/xmas_light_control.yaml
 mode: restart
-
 triggers:
-  - trigger: state
+  - platform: state
     entity_id: !input schedule
-  - trigger: state
-    entity_id: !input brightness_sensor
-  - trigger: state
+  - platform: template
+    value_template: >
+      {% if brightness_sensor %}
+        {{ states(brightness_sensor) | float(0) <= brightness_threshold }}
+      {% else %}
+        false
+      {% endif %}
+    for:
+      seconds: !input brightness_delay
+  - platform: state
     entity_id: !input persons
-  - trigger: state
+  - platform: state
     entity_id: !input motion_sensor
-  - trigger: state
+  - platform: state
     entity_id: !input party_mode
-
 variables:
   schedule: !input schedule
   brightness_sensor: !input brightness_sensor
   brightness_threshold: !input brightness_threshold
+  brightness_delay: !input brightness_delay
   persons: !input persons
   motion_sensor: !input motion_sensor
   party_mode: !input party_mode
-
 condition: []
-
 action:
   - choose:
       - conditions:
-          # Party Mode check
           - condition: template
             value_template: >
               {% if party_mode %}
@@ -98,23 +126,11 @@ action:
                 false
               {% endif %}
         sequence:
-          - action: light.turn_on
+          - service: light.turn_on
             target: !input lights
       - conditions:
-          # Schedule check
           - condition: template
-            value_template: "{{ states(schedule) == 'on' }}"
-
-          # Brightness sensor check (optional)
-          - condition: template
-            value_template: >
-              {% if brightness_sensor %}
-                {{ states(brightness_sensor) | float(0) <= brightness_threshold }}
-              {% else %}
-                true
-              {% endif %}
-
-          # Presence check (optional)
+            value_template: '{{ states(schedule) == ''on'' }}'
           - condition: template
             value_template: >
               {% if persons | length > 0 %}
@@ -122,8 +138,6 @@ action:
               {% else %}
                 true
               {% endif %}
-
-          # Motion sensor check (optional)
           - condition: template
             value_template: >
               {% if motion_sensor %}
@@ -132,8 +146,8 @@ action:
                 true
               {% endif %}
         sequence:
-          - action: light.turn_on
+          - service: light.turn_on
             target: !input lights
     default:
-      - action: light.turn_off
+      - service: light.turn_off
         target: !input lights
