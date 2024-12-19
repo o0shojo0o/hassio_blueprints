@@ -64,7 +64,7 @@ blueprint:
           step: 1.0
           mode: slider
     brightness_delay:
-      name: Brightness Delay (optional)
+      name: Brightness Delay
       description: Time in seconds the brightness value must be below the threshold before it is considered valid.
       default: 0
       selector:
