@@ -1,6 +1,6 @@
 blueprint:
   name: Simple Cover Control
-    description: > 
+  description: > 
       The script controls a cover: it opens or closes based on switch activation and moves to the ventilation position when the window is open. 
       If the window is closed, the cover closes completely.
   domain: automation
@@ -12,7 +12,7 @@ blueprint:
         entity:
           filter:
             - domain:
-                - sensor
+                - event
           multiple: true
     cover:
       name: The cover
@@ -47,15 +47,10 @@ blueprint:
 alias: Cover Control
 description: ""
 trigger:
-  - platform: state
+  - trigger: state
     entity_id: !input taster_action
-    to: open
-    id: open_event
-  - platform: state
-    entity_id: !input taster_action
-    to: close
-    id: close_event
-  - platform: state
+    to: ~
+  - trigger: state
     entity_id: !input windowsContact
     to: "off"
     id: event_windows_close
@@ -63,7 +58,7 @@ trigger:
       hours: 0
       minutes: 0
       seconds: 3
-  - platform: state
+  - trigger: state
     entity_id: !input windowsContact
     to: "on"
     id: event_windows_open
@@ -82,15 +77,19 @@ action:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ trigger.id == 'open_event' }}"
+            value_template: "{{trigger.from_state.state != 'unavailable'}}"
+          - condition: template
+            value_template: "{{ trigger.to_state.attributes.event_type == 'open' }}"
         sequence:
-          - service: cover.open_cover
+          - action: cover.open_cover
             target:
               entity_id: !input cover
             data: {}
       - conditions:
           - condition: template
-            value_template: "{{ trigger.id == 'close_event' }}"
+            value_template: "{{trigger.from_state.state != 'unavailable'}}" 
+          - condition: template
+            value_template: "{{ trigger.to_state.attributes.event_type == 'close' }}"
         sequence:
           - choose:
               - conditions:
@@ -98,7 +97,7 @@ action:
                     entity_id: !input windowsContact
                     state: "on"
                 sequence:
-                  - service: cover.set_cover_position
+                  - action: cover.set_cover_position
                     target:
                       entity_id: !input cover
                     data:
@@ -108,7 +107,7 @@ action:
                     entity_id: !input windowsContact
                     state: "off"
                 sequence:
-                  - service: cover.close_cover
+                  - action: cover.close_cover
                     target:
                       entity_id: !input cover
                     data: {}
@@ -116,7 +115,7 @@ action:
           - condition: template
             value_template: "{{ trigger.id == 'event_windows_open' and state_attr(cover, 'current_position') | int == 0 }}"
         sequence:
-          - service: cover.set_cover_position
+          - action: cover.set_cover_position
             target:
               entity_id: !input cover
             data:
@@ -125,7 +124,7 @@ action:
           - condition: template
             value_template: "{{ trigger.id == 'event_windows_close' and state_attr(cover, 'current_position') | int == ventilatePos }}"
         sequence:
-          - service: cover.close_cover
+          - action: cover.close_cover
             target:
               entity_id: !input cover
             data: {}

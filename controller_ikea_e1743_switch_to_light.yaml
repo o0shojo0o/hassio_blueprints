@@ -1,156 +1,143 @@
 blueprint:
   name: Controller - IKEA E1743 Tradfri Switch as a Push-Button to Light via zigbee2mqtt
-  description:
-    "Controls a light with any number of switches given by ENTITY. \n\n
-    The switch is interpreted as a push-button so that 'ON' and 'Brightness Move Up' can control a different light to 'OFF' and 'Brightness Move Down' \n\n
-    For example, 'Brightness Move Up' first dims up and then dims down again when pressed repeatedly. \n\n
-    Unfortunately, a helper of the type boolean (switch) is required for this functionality. \n\n
-    For dimming, the zigbee2mqtt functionality 'brightness_move' is used to enable smooth and network-friendly dimming."
+  description: "Controls a light with any number of switches given by ENTITY. \n\n
+    The switch is interpreted as a push-button so that 'ON' and 'Brightness Move Up'
+    can control a different light to 'OFF' and 'Brightness Move Down' \n\n For example,
+    'Brightness Move Up' first dims up and then dims down again when pressed repeatedly.
+    \n\n Unfortunately, a helper of the type boolean (switch) is required for this
+    functionality. \n\n For dimming, the zigbee2mqtt functionality 'brightness_move'
+    is used to enable smooth and network-friendly dimming."
   domain: automation
   input:
-    source_switch_e1743_action:
+    source_switch_e1743_event:
       name: IKEA E1743 Tradfri Switch
-      description: The switch-action which triggers this automation.
+      description: The switch-event which triggers this automation.
       selector:
         entity:
           filter:
-            - integration: mqtt
-              domain:
-                - sensor
+          - integration: mqtt
+            domain:
+            - event
           multiple: true
-
     brightness_move_event:
       name: Brightness move event
       description: Which event should be listened to.
       selector:
         select:
           options:
-            - brightness_move_up
-            - brightness_move_down
-
+          - brightness_move_up
+          - brightness_move_down
+          custom_value: false
+          multiple: false
     on_off_event:
       name: On/Off event
       description: Which event should be listened to.
       selector:
         select:
           options:
-            - "on"
-            - "off"
-
+          - 'on'
+          - 'off'
+          custom_value: false
+          multiple: false
     brightness_move_speed:
       name: Brightness move speed
       description: Controls the brightness move speed.
       default: 50
       selector:
         number:
-          min: 1
-          max: 50
-          step: 1
+          min: 1.0
+          max: 50.0
+          step: 1.0
           unit_of_measurement: units per second
           mode: slider
-
     target_light:
       name: Target Light
       description: the light you want to control.
       selector:
         entity:
           filter:
-            - integration: mqtt
-              domain:
-                - light
+          - integration: mqtt
+            domain:
+            - light
           multiple: false
-
     helper_last_dim_direction:
       name: Helper for last dim direction
       description: Helper for last dim direction.
       selector:
         entity:
           filter:
-            domain:
-              - input_boolean
+          - domain:
+            - input_boolean
           multiple: false
-
+  source_url: https://github.com/o0shojo0o/hassio_blueprints/blob/main/controller_ikea_e1743_switch_to_light.yaml
 alias: Tradfri E1743 Switch to Light via zigbee2mqtt
-description: ""
+description: ''
 trigger:
-  - platform: state
-    entity_id: !input source_switch_e1743_action
-    id: "on"
-    to: "on"
-  - platform: state
-    entity_id: !input source_switch_e1743_action
-    id: "off"
-    to: "off"
-  - platform: state
-    entity_id: !input source_switch_e1743_action
-    id: brightness_move_up
-    to: brightness_move_up
-  - platform: state
-    entity_id: !input source_switch_e1743_action
-    id: brightness_move_down
-    to: brightness_move_down
-  - platform: state
-    entity_id: !input source_switch_e1743_action
-    id: brightness_stop
-    to: brightness_stop
+- trigger: state
+  entity_id: !input source_switch_e1743_event
+  to: ~
 condition: []
 action:
-  - variables:
-      target_light: !input target_light
-      target_light_topic: "zigbee2mqtt/{{ device_attr(target_light, 'name') }}/set"
-      brightness_move_speed: !input brightness_move_speed
-      helper_last_dim_direction: !input helper_last_dim_direction
-      brightness_move_event: !input brightness_move_event
-      on_off_event: !input on_off_event
-  - choose:
+- variables:
+    target_light: !input target_light
+    target_light_topic: zigbee2mqtt/{{ device_attr(target_light, 'name') }}/set
+    brightness_move_speed: !input brightness_move_speed
+    helper_last_dim_direction: !input helper_last_dim_direction
+    brightness_move_event: !input brightness_move_event
+    on_off_event: !input on_off_event
+- choose:
+  - conditions:
+    - condition: template
+      value_template: "{{trigger.from_state.state != 'unavailable'}}"
+    - condition: template
+      value_template: '{{ trigger.to_state.attributes.event_type == on_off_event }}'
+    sequence:
+    - action: light.toggle
+      entity_id: !input target_light
+  - conditions:
+    - condition: template
+      value_template: "{{trigger.from_state.state != 'unavailable'}}"
+    - condition: template
+      value_template: '{{ trigger.to_state.attributes.event_type == brightness_move_event }}'
+    sequence:
+    - choose:
       - conditions:
-          - condition: template
-            value_template: "{{ trigger.id == on_off_event }}"
+        - condition: template
+          value_template: '{{ states(helper_last_dim_direction) == ''off'' }}'
         sequence:
-          - service: light.toggle
-            entity_id: !input target_light
+        - action: input_boolean.turn_on
+          target:
+            entity_id: !input helper_last_dim_direction
+          data: {}
+        - action: mqtt.publish
+          data:
+            topic: '{{ target_light_topic }}'
+            payload: '{"brightness_move": {{ brightness_move_speed }}}'
+            qos: 0
+            retain: false
       - conditions:
-          - condition: template
-            value_template: "{{ trigger.id == brightness_move_event }}"
+        - condition: template
+          value_template: '{{ states(helper_last_dim_direction) == ''on'' }}'
         sequence:
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ states(helper_last_dim_direction) == 'off' }}"
-                sequence:
-                  - service: input_boolean.turn_on
-                    target:
-                      entity_id: !input helper_last_dim_direction
-                    data: {}
-                  - service: mqtt.publish
-                    data:
-                      topic: "{{ target_light_topic }}"
-                      payload: '{"brightness_move": {{ brightness_move_speed }}}'
-                      qos: 0
-                      retain: false
-              - conditions:
-                  - condition: template
-                    value_template: "{{ states(helper_last_dim_direction) == 'on' }}"
-                sequence:
-                  - service: input_boolean.turn_off
-                    target:
-                      entity_id: !input helper_last_dim_direction
-                    data: {}
-                  - service: mqtt.publish
-                    data:
-                      topic: "{{ target_light_topic }}"
-                      payload: '{"brightness_move": -{{ brightness_move_speed }}}'
-                      qos: 0
-                      retain: false
-      - conditions:
-          - condition: trigger
-            id:
-              - brightness_stop
-        sequence:
-          - service: mqtt.publish
-            data:
-              topic: "{{ target_light_topic }}"
-              payload: '{"brightness_move": 0}'
-              qos: 0
-              retain: false
+        - action: input_boolean.turn_off
+          target:
+            entity_id: !input helper_last_dim_direction
+          data: {}
+        - action: mqtt.publish
+          data:
+            topic: '{{ target_light_topic }}'
+            payload: '{"brightness_move": -{{ brightness_move_speed }}}'
+            qos: 0
+            retain: false
+  - conditions:
+    - condition: trigger
+      id:
+      - brightness_stop
+    sequence:
+    - action: mqtt.publish
+      data:
+        topic: '{{ target_light_topic }}'
+        payload: '{"brightness_move": 0}'
+        qos: 0
+        retain: false
 mode: single
